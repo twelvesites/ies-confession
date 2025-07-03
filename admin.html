@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Panel - Confessions</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f8f9fa;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .confession-box {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      padding: 15px;
+      margin-bottom: 20px;
+      border-left: 6px solid red;
+    }
+
+    .confession-text {
+      font-size: 16px;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .meta {
+      font-size: 14px;
+      color: #333;
+      margin-top: 5px;
+    }
+
+    .meta strong {
+      color: #e11d48;
+    }
+
+    .meta-section {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+
+    .meta button {
+      background: red;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .meta button:hover {
+      background: darkred;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚨 Admin Confession Dashboard</h1>
+  <div id="adminFeed"></div>
+     
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFirestore, collection, query, orderBy, onSnapshot, deleteDoc, doc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyDob9nbpu0Y9ebCmxwHBTCyFFCzSjgNFLs",
+  authDomain: "confession-ies.firebaseapp.com",
+  projectId: "confession-ies",
+  storageBucket: "confession-ies.firebasestorage.app",
+  messagingSenderId: "705171117795",
+  appId: "1:705171117795:web:4aa165b3b071a0d6b197d6",
+  measurementId: "G-9347YMJ01Z"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const adminFeed = document.getElementById('adminFeed');
+
+function escapeHTML(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatTimestamp(ms) {
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return "Invalid Date";
+  }
+}
+
+function renderAdminCard(docId, data) {
+  const {
+    text,
+    createdAt,
+    userId,
+    reports,
+    language,
+    platform,
+    userAgent,
+    likes,
+    replies,
+    deviceInfo = {}
+  } = data;
+
+  const date = createdAt ? formatTimestamp(createdAt) : "Unknown";
+
+  const box = document.createElement('div');
+  box.className = 'confession-box';
+
+  box.innerHTML = `
+    <div class="confession-text">${escapeHTML(text || "[No Text]")}</div>
+    
+    <div class="meta">
+      <strong>📅 Submitted:</strong> ${date}
+    </div>
+    <div class="meta">
+      <strong>🧑 User ID:</strong> ${userId || "N/A"}
+    </div>
+    <div class="meta">
+      <strong>⚠️ Reports:</strong> ${reports || 0}
+    </div>
+    <div class="meta">
+      <strong>❤️ Likes:</strong> ${likes || 0}
+    </div>
+    <div class="meta">
+      <strong>💬 Replies:</strong> ${replies?.length || 0}
+    </div>
+
+    <div class="meta-section">
+      <div class="meta"><strong>🌐 Language:</strong> ${language || "N/A"}</div>
+      <div class="meta"><strong>💻 Platform:</strong> ${platform || "N/A"}</div>
+      <div class="meta"><strong>🕵️ User Agent:</strong> ${userAgent || "N/A"}</div>
+    </div>
+
+    <div class="meta-section">
+      <div class="meta"><strong>📱 Device Info:</strong></div>
+      <pre style="font-size: 13px; background: #f1f1f1; padding: 8px; border-radius: 5px; overflow-x: auto;">${escapeHTML(JSON.stringify(deviceInfo, null, 2))}</pre>
+    </div>
+
+    <div class="meta">
+      <button onclick="deleteConfession('${docId}')">🗑️ Delete Confession</button>
+    </div>
+  `;
+
+  adminFeed.appendChild(box);
+}
+
+window.deleteConfession = async function(id) {
+  if (confirm("Are you sure you want to delete this confession?")) {
+    await deleteDoc(doc(db, 'confessions', id));
+    alert("🗑️ Confession deleted.");
+  }
+};
+
+// 🔥 SHOW MOST REPORTED CONFESSIONS FIRST, THEN MOST RECENT
+const q = query(
+  collection(db, 'confessions'),
+  orderBy('reports', 'desc'),
+  orderBy('createdAt', 'desc')
+);
+
+onSnapshot(q, snapshot => {
+  adminFeed.innerHTML = '';
+  snapshot.forEach(docSnap => {
+    renderAdminCard(docSnap.id, docSnap.data());
+  });
+});
+
+  </script>
+
+</body>
+</html>
