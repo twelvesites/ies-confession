@@ -65,121 +65,191 @@
 
   <h1>🚨 Admin Confession Dashboard</h1>
   <div id="adminFeed"></div>
+
+  <h2>👥 Visitors Analytics</h2>
+  <div id="adminVisitors"></div>
      
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore, collection, query, orderBy, onSnapshot, deleteDoc, doc
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getFirestore, collection, query, orderBy, onSnapshot, deleteDoc, doc, getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyDob9nbpu0Y9ebCmxwHBTCyFFCzSjgNFLs",
-  authDomain: "confession-ies.firebaseapp.com",
-  projectId: "confession-ies",
-  storageBucket: "confession-ies.firebasestorage.app",
-  messagingSenderId: "705171117795",
-  appId: "1:705171117795:web:4aa165b3b071a0d6b197d6",
-  measurementId: "G-9347YMJ01Z"
-};
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDob9nbpu0Y9ebCmxwHBTCyFFCzSjgNFLs",
+      authDomain: "confession-ies.firebaseapp.com",
+      projectId: "confession-ies",
+      storageBucket: "confession-ies.firebasestorage.app",
+      messagingSenderId: "705171117795",
+      appId: "1:705171117795:web:4aa165b3b071a0d6b197d6",
+      measurementId: "G-9347YMJ01Z"
+    };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const adminFeed = document.getElementById('adminFeed');
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-function escapeHTML(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+    const adminFeed = document.getElementById('adminFeed');
+    const adminVisitorsContainer = document.getElementById('adminVisitors');
 
-function formatTimestamp(ms) {
-  try {
-    return new Date(ms).toLocaleString();
-  } catch {
-    return "Invalid Date";
-  }
-}
+    // Escape HTML to avoid XSS
+    function escapeHTML(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
 
-function renderAdminCard(docId, data) {
-  const {
-    text,
-    createdAt,
-    userId,
-    reports,
-    language,
-    platform,
-    userAgent,
-    likes,
-    replies,
-    deviceInfo = {}
-  } = data;
+    // Format Firestore timestamp safely
+    function formatTimestamp(ts) {
+      try {
+        if (!ts) return "Unknown";
+        if (typeof ts.toDate === 'function') {
+          return ts.toDate().toLocaleString();
+        }
+        return new Date(ts).toLocaleString();
+      } catch {
+        return "Invalid Date";
+      }
+    }
 
-  const date = createdAt ? formatTimestamp(createdAt) : "Unknown";
+    // Render Confession Card
+    function renderAdminCard(docId, data) {
+      const {
+        text,
+        createdAt,
+        userId,
+        reports,
+        language,
+        platform,
+        userAgent,
+        likes,
+        replies,
+        deviceInfo = {}
+      } = data;
 
-  const box = document.createElement('div');
-  box.className = 'confession-box';
+      const date = formatTimestamp(createdAt);
 
-  box.innerHTML = `
-    <div class="confession-text">${escapeHTML(text || "[No Text]")}</div>
-    
-    <div class="meta">
-      <strong>📅 Submitted:</strong> ${date}
-    </div>
-    <div class="meta">
-      <strong>🧑 User ID:</strong> ${userId || "N/A"}
-    </div>
-    <div class="meta">
-      <strong>⚠️ Reports:</strong> ${reports || 0}
-    </div>
-    <div class="meta">
-      <strong>❤️ Likes:</strong> ${likes || 0}
-    </div>
-    <div class="meta">
-      <strong>💬 Replies:</strong> ${replies?.length || 0}
-    </div>
+      const box = document.createElement('div');
+      box.className = 'confession-box';
 
-    <div class="meta-section">
-      <div class="meta"><strong>🌐 Language:</strong> ${language || "N/A"}</div>
-      <div class="meta"><strong>💻 Platform:</strong> ${platform || "N/A"}</div>
-      <div class="meta"><strong>🕵️ User Agent:</strong> ${userAgent || "N/A"}</div>
-    </div>
+      box.innerHTML = `
+        <div class="confession-text">${escapeHTML(text || "[No Text]")}</div>
+        <div class="meta"><strong>📅 Submitted:</strong> ${date}</div>
+        <div class="meta"><strong>🧑 User ID:</strong> ${userId || "N/A"}</div>
+        <div class="meta"><strong>⚠️ Reports:</strong> ${reports || 0}</div>
+        <div class="meta"><strong>❤️ Likes:</strong> ${likes || 0}</div>
+        <div class="meta"><strong>💬 Replies:</strong> ${replies?.length || 0}</div>
+        <div class="meta-section">
+          <div class="meta"><strong>🌐 Language:</strong> ${language || "N/A"}</div>
+          <div class="meta"><strong>💻 Platform:</strong> ${platform || "N/A"}</div>
+          <div class="meta"><strong>🕵️ User Agent:</strong> ${userAgent || "N/A"}</div>
+        </div>
+        <div class="meta-section">
+          <div class="meta"><strong>📱 Device Info:</strong></div>
+          <pre style="font-size: 13px; background: #f1f1f1; padding: 8px; border-radius: 5px; overflow-x: auto;">
+${escapeHTML(JSON.stringify(deviceInfo, null, 2))}
+          </pre>
+        </div>
+        <div class="meta">
+          <button onclick="deleteConfession('${docId}')">🗑️ Delete Confession</button>
+        </div>
+      `;
 
-    <div class="meta-section">
-      <div class="meta"><strong>📱 Device Info:</strong></div>
-      <pre style="font-size: 13px; background: #f1f1f1; padding: 8px; border-radius: 5px; overflow-x: auto;">${escapeHTML(JSON.stringify(deviceInfo, null, 2))}</pre>
-    </div>
+      adminFeed.appendChild(box);
+    }
 
-    <div class="meta">
-      <button onclick="deleteConfession('${docId}')">🗑️ Delete Confession</button>
-    </div>
-  `;
+    window.deleteConfession = async function(id) {
+      if (confirm("Are you sure you want to delete this confession?")) {
+        try {
+          await deleteDoc(doc(db, 'confessions', id));
+          alert("🗑️ Confession deleted.");
+        } catch (err) {
+          alert("❌ Failed to delete confession: " + err.message);
+        }
+      }
+    };
 
-  adminFeed.appendChild(box);
-}
+    // Firestore query for confessions, ordered by reports desc, then createdAt desc
+    const confessionsQuery = query(
+      collection(db, 'confessions'),
+      orderBy('reports', 'desc'),
+      orderBy('createdAt', 'desc')
+    );
 
-window.deleteConfession = async function(id) {
-  if (confirm("Are you sure you want to delete this confession?")) {
-    await deleteDoc(doc(db, 'confessions', id));
-    alert("🗑️ Confession deleted.");
-  }
-};
+    onSnapshot(confessionsQuery, snapshot => {
+      adminFeed.innerHTML = '';
+      snapshot.forEach(docSnap => {
+        renderAdminCard(docSnap.id, docSnap.data());
+      });
+    });
 
-// 🔥 SHOW MOST REPORTED CONFESSIONS FIRST, THEN MOST RECENT
-const q = query(
-  collection(db, 'confessions'),
-  orderBy('reports', 'desc'),
-  orderBy('createdAt', 'desc')
-);
+    // ——— Visitors Section ———
 
-onSnapshot(q, snapshot => {
-  adminFeed.innerHTML = '';
-  snapshot.forEach(docSnap => {
-    renderAdminCard(docSnap.id, docSnap.data());
-  });
-});
+    // Fetch visitors list
+    async function fetchVisitors() {
+      const visitorsCol = collection(db, "visitors");
+      const snapshot = await getDocs(visitorsCol);
+      const visitors = [];
+      for (const docSnap of snapshot.docs) {
+        visitors.push({ id: docSnap.id, ...docSnap.data() });
+      }
+      return visitors;
+    }
+
+    // Fetch sessions for a visitor
+    async function fetchSessions(visitorId) {
+      const sessionsCol = collection(db, "visitors", visitorId, "sessions");
+      const snapshot = await getDocs(sessionsCol);
+      const sessions = [];
+      snapshot.forEach(docSnap => {
+        sessions.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      return sessions;
+    }
+
+    // Render visitors and session info
+    async function renderVisitors() {
+      const visitors = await fetchVisitors();
+      adminVisitorsContainer.innerHTML = '';
+
+      visitors.forEach(visitor => {
+        const visitorBox = document.createElement('div');
+        visitorBox.className = 'visitor-box';
+
+        visitorBox.innerHTML = `
+          <h3>Visitor ID: ${escapeHTML(visitor.id)}</h3>
+          <p>First Visit: ${formatTimestamp(visitor.firstVisitAt)}</p>
+          <p>Last Visit: ${formatTimestamp(visitor.lastVisitAt)}</p>
+          <p>Visit Count: ${visitor.visitCount || 0}</p>
+          <p>Device: ${escapeHTML(visitor.deviceInfo?.deviceType || 'Unknown')}</p>
+          <p>Browser: ${escapeHTML(visitor.deviceInfo?.browser || 'Unknown')}</p>
+          <button id="showSessions-${visitor.id}">Show Sessions</button>
+          <div id="sessions-${visitor.id}" class="sessions-container" style="display:none;"></div>
+        `;
+
+        adminVisitorsContainer.appendChild(visitorBox);
+
+        // Toggle sessions display on button click
+        visitorBox.querySelector(`#showSessions-${visitor.id}`).addEventListener('click', async () => {
+          const sessionsContainer = visitorBox.querySelector(`#sessions-${visitor.id}`);
+          if (sessionsContainer.style.display === 'none') {
+            sessionsContainer.style.display = 'block';
+            const sessions = await fetchSessions(visitor.id);
+            sessionsContainer.innerHTML = sessions.map(session => `
+              <div class="session-item">
+                <p>Started: ${formatTimestamp(session.sessionStartAt)}</p>
+                <p>Pages Visited: ${escapeHTML(session.pagesVisited?.join(', ') || 'N/A')}</p>
+              </div>
+            `).join('');
+          } else {
+            sessionsContainer.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    renderVisitors();
 
   </script>
-
 </body>
 </html>
