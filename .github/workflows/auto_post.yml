@@ -26,10 +26,11 @@ jobs:
         with:
           python-version: 3.12
 
-      # 3. Install dependencies
+            # 3. Install dependencies
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && \
-             python -m pip install -r auto-Instagram-posting-bot/requirements.txt
+        run: python3 -m pip install --upgrade pip && \
+             python3 -m pip install -r auto-Instagram-posting-bot/requirements.txt
+
 
       # 4. Save Firebase credentials from secret
       - name: Save Firebase JSON
@@ -37,4 +38,5 @@ jobs:
 
       # 5. Run the bot
       - name: Run Instagram Bot
-        run: python auto-Instagram-posting-bot/bot.py
+        run: python3 auto-Instagram-posting-bot/bot.py
+
