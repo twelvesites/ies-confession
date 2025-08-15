@@ -1,28 +1,32 @@
 name: Auto Instagram Post
 
+# Schedule: every 10 minutes
 on:
+  workflow_dispatch: # manual trigger
   schedule:
-    # Every 10 minutes
-    - cron: '*/10 * * * *'
-  workflow_dispatch:  # Allows manual run
+    - cron: "*/10 * * * *"  # every 10 minutes
 
 jobs:
   post-confessions:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install instagrapi firebase-admin Pillow python-dotenv
+          pip install instagrapi firebase-admin pillow python-dotenv
+
+      - name: Save Firebase credentials from secret
+        run: |
+          echo "${{ secrets.FIREBASE_JSON }}" > auto-Instagram-posting-bot/firebase.json
 
       - name: Run bot
         env:
@@ -30,6 +34,4 @@ jobs:
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
           FIREBASE_JSON: ${{ secrets.FIREBASE_JSON }}
         run: |
-          # Save Firebase credentials from secret
-          echo "$FIREBASE_JSON" > firebase.json
-          python bot.py
+          python auto-Instagram-posting-bot/bot.py
